@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+
+# this is gonna be a fugly python script with no OOP.  Quick and dirty.
+#
+# vi: ft=python ts=4 sw=4 expandtab
+
+import argparse
+import json
+import pprint
+import re
+import sh
+import sys
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--dry-run', default=False, help='Only print commands that would be run', action='store_true')
+parser.add_argument('--mode', default='single', help='Name of the mode to switch to')
+parser.add_argument('--screen-priority', default='conf/priority.json', help='JSON file mapping the port name to screen positions from left to right')
+# note: using argparse.FileType() is considered harmful: https://stackoverflow.com/questions/18862836/how-to-open-file-using-argparse
+
+args = parser.parse_args()
+
+priority = []
+with open(args.screen_priority) as f:
+    priority = json.load(f)["priority"]
+
+current_port_map = {}
+last_port = None
+for line in sh.xrandr().split("\n"):
+    if last_port is not None:
+        # we just found a port, the very next line has the highest supported resolution
+        r = re.compile('^ +(\d+x\d+) ')
+        m = r.match(line)
+        if m:
+            current_port_map[last_port]["max_resolution"] = m.group(1)
+            print("Found port %s has max resolution %s" % (last_port, m.group(1)))
+            last_port = None
+            continue
+
+    # Connected but inactive looks like this:
+    # DP-0 connected primary (normal left inverted right x axis y axis)
+    # Connected and active looks like this:
+    # DP-0 connected primary 2560x1440+4480+0 (normal left inverted right x axis y axis) 708mm x 399mm
+    r = re.compile('^([^ ]+) ((?:dis)?connected) (?:primary )?(?:(\d+x\d+)\+\d+\+\d+ )?\(')
+    m = r.match(line)
+    if m:
+        properties = {
+                "port": m.group(1),
+                "resolution": m.group(3),
+        }
+
+        if properties["resolution"] is None:
+            properties["active"] = False
+        else:
+            properties["active"] = True
+
+        if m.group(2) == "disconnected":
+            properties["connected"] = False
+        else:
+            properties["connected"] = True
+
+        print("Found port {port} at resolution {resolution} (connected={connected}, active={active})".format(**properties))
+        current_port_map[properties["port"]] = properties
+        last_port = properties["port"]
+
+
+# TODO: calculate layout, enable every screen which is connected and disable every screen which is not and place then appropriately based upon ordering
+# Current xrandr cmd looks like this:
+#   xrandr --output HDMI-0 --mode 2560x1440 --pos 1920x0 --rotate normal --output DP-4 --off --output DP-3 --off --output DP-2 --mode 1920x1080 --pos 0x0 --rotate normal --output DP-1 --off --output DP-0 --primary --mode 2560x1440 --pos 4480x0 --rotate normal
+
+xrandr_args = []
+
+screen = 0
+xpos = 0
+ypos = 0
+for port in priority:
+    if port in current_port_map and current_port_map[port]["connected"]:
+        xrandr_args.append("--output")
+        xrandr_args.append(port)
+        xrandr_args.append("--mode")
+        xrandr_args.append(current_port_map[port]["max_resolution"])
+        xrandr_args.append("--rotate")
+        xrandr_args.append("normal")
+
+        # pos is top-left position
+        xrandr_args.append("--pos")
+        xrandr_args.append("%sx%s" % (xpos, ypos))
+
+        print("Placing screen %s on port %s (max resolution %s) at position %sx%s" % (screen, port, current_port_map[port]["max_resolution"], xpos, ypos))
+
+        screen += 1
+        # adjust xpos, leave ypos alone because all screens are next to eachother on the same level
+        xpos += int(current_port_map[port]["max_resolution"].split("x")[0])
+
+for port in sorted(current_port_map.keys()):
+    if port in priority and current_port_map[port]["connected"]:
+        # if port is in our list and connected, we alreadty did it
+        continue
+    # otherwise, need to turn it off
+    xrandr_args.append("--output")
+    xrandr_args.append(port)
+    xrandr_args.append("--off")
+
+if args.dry_run:
+    print("DRY_RUN: would be running xrandr %s" % " ".join(xrandr_args))
+else:
+    cmd = sh.xrandr(xrandr_args)
+    print("Executed: %s" % cmd.cmd)
+
+sys.exit(0)
+
+

@@ -7,15 +7,16 @@ Dependencies:
 * sh module (pip install sh)
 * xrandr on your path
 * randr compatible video card (most nvidia and ATI cards work)
+* restart-ratpoison-retaining-window-maps works best with ratpoison 1.4.9.  On 1.4.8, I observed crash/corruption bugs.
 
-# Usage
+# Usage: ssi
 
     # list your ports from "left to right" of how the screens will be that are plugged into it
     $ echo '{"priority":["DP-2","HDMI-0","DP-0"]}' > conf/priority.json
     # plug in the screens you want active, and run this:
     $ ./bin/ssi --help
     usage: ssi [-h] [--dry-run] [--mode MODE] [--screen-priority SCREEN_PRIORITY]
-    
+
     optional arguments:
       -h, --help            show this help message and exit
       --dry-run             Only print commands that would be run
@@ -39,6 +40,34 @@ Dependencies:
     DRY_RUN: would be running xrandr --output DP-2 --mode 1920x1080 --rotate normal --pos 0x0 --output HDMI-0 --mode 2560x1440 --rotate normal --pos 1920x0 --output DP-0 --mode 2560x1440 --rotate normal --pos 4480x0 --output DP-1 --off --output DP-3 --off --output DP-4 --off
     # you can now run the above command via copy/paste, or rerun the command without --dry-run
 
+# Usage: restart-ratpoison-retaining-window-maps
+
+    # This script looks at which windows are mapped to which numbers, then restarts ratpoison and remapps the windows as they were.
+    # It does not presently do any screen mapping or putting windows on the screens they previously were on
+    # That's for a future version
+    $ ./bin/restart-ratpoison-retaining-window-maps
+    Found window #0 (id 6291469): XTerm - xterm
+    Found window #1 (id 10485776): Firefox - Some title here
+    Found window #2 (id 12582925): XTerm - xterm
+    Found window #3 (id 35651585): Google-chrome - Some other title here
+    Found window #4 (id 48234509): XTerm - xterm
+    Found window #5 (id 50331651): Pavucontrol - Volume Control
+    Ratpoison Restarted!
+    Checking window 0 to see if it is numbered correctly
+    Found window id 50331651 should be 5 but is 0
+    Checking window 0 to see if it is numbered correctly
+    Checking window 1 to see if it is numbered correctly
+    Found window id 48234509 should be 4 but is 1
+    Checking window 0 to see if it is numbered correctly
+    Checking window 1 to see if it is numbered correctly
+    Checking window 2 to see if it is numbered correctly
+    Found window id 35651585 should be 3 but is 2
+    Checking window 0 to see if it is numbered correctly
+    Checking window 1 to see if it is numbered correctly
+    Checking window 2 to see if it is numbered correctly
+    Checking window 3 to see if it is numbered correctly
+    Checking window 4 to see if it is numbered correctly
+    Checking window 5 to see if it is numbered correctly
 
 # TODO:
 

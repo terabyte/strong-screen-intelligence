@@ -80,6 +80,11 @@ for port in priority:
         xrandr_args.append(current_port_map[port]["max_resolution"])
         xrandr_args.append("--rotate")
         xrandr_args.append("normal")
+        # if panning gets turned on, this will explicitly turn it off
+        # TODO: this doesn't work - had to restart x!!!
+        #xrandr_args.append("--panning")
+        #xrandr_args.append("%s/0/0/0/0" % current_port_map[port]["max_resolution"])
+
 
         # pos is top-left position
         xrandr_args.append("--pos")

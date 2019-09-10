@@ -13,7 +13,7 @@ import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dry-run', default=False, help='Only print commands that would be run', action='store_true')
-parser.add_argument('--mode', default='single', help='Name of the mode to switch to')
+parser.add_argument('--mode', default='all', help='Name of the mode to switch to [all, single]. default = all')
 parser.add_argument('--screen-priority', default='conf/priority.json', help='JSON file mapping the port name to screen positions from left to right')
 # note: using argparse.FileType() is considered harmful: https://stackoverflow.com/questions/18862836/how-to-open-file-using-argparse
 
@@ -74,6 +74,16 @@ xpos = 0
 ypos = 0
 for port in priority:
     if port in current_port_map and current_port_map[port]["connected"]:
+
+        if screen > 0:
+            if args.mode == 'single':
+                # we just set up the first screen we find, then bail
+                print("Single mode - skipping port {}".format(port))
+                xrandr_args.append("--output")
+                xrandr_args.append(port)
+                xrandr_args.append("--off")
+                continue
+
         xrandr_args.append("--output")
         xrandr_args.append(port)
         xrandr_args.append("--mode")
@@ -95,6 +105,7 @@ for port in priority:
         screen += 1
         # adjust xpos, leave ypos alone because all screens are next to eachother on the same level
         xpos += int(current_port_map[port]["max_resolution"].split("x")[0])
+
 
 for port in sorted(current_port_map.keys()):
     if port in priority and current_port_map[port]["connected"]:

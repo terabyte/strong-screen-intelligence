@@ -5,25 +5,43 @@
 # vi: ft=python ts=4 sw=4 expandtab
 
 import argparse
+import collections
 import json
+import os
 import pprint
 import re
 import sh
 import sys
 
+# https://stackoverflow.com/questions/12925052/python-and-default-dict-how-to-pprint
+class PrettyDefaultDict(collections.defaultdict):
+    __repr__ = dict.__repr__
+
+
+# https://stackoverflow.com/a/24482924/156785
+def autodict():
+    return PrettyDefaultDict(autodict)
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--dry-run', default=False, help='Only print commands that would be run', action='store_true')
 parser.add_argument('--mode', default='all', help='Name of the mode to switch to [all, single]. default = all')
 parser.add_argument('--screen-priority', default='conf/priority.json', help='JSON file mapping the port name to screen positions from left to right')
+parser.add_argument('--resolution-map', default='conf/resolution-map.json', help='JSON file mapping the maximum resolutions for various ports')
 # note: using argparse.FileType() is considered harmful: https://stackoverflow.com/questions/18862836/how-to-open-file-using-argparse
 
 args = parser.parse_args()
 
 priority = []
-with open(args.screen_priority) as f:
-    priority = json.load(f)["priority"]
+if os.path.exists(args.screen_priority):
+    with open(args.screen_priority) as f:
+        priority = json.load(f)["priority"]
 
-current_port_map = {}
+resolution_map = {}
+if os.path.exists(args.resolution_map):
+    with open(args.resolution_map) as f:
+        resolution_map = json.load(f)
+
+current_port_map = autodict()
 last_port = None
 for line in sh.xrandr().split("\n"):
     if last_port is not None:
@@ -31,8 +49,12 @@ for line in sh.xrandr().split("\n"):
         r = re.compile('^ +(\d+x\d+) ')
         m = r.match(line)
         if m:
-            current_port_map[last_port]["max_resolution"] = m.group(1)
-            print("Found port %s has max resolution %s" % (last_port, m.group(1)))
+            resolution = m.group(1)
+            print("Found port %s has max resolution %s" % (last_port, resolution))
+            if resolution_map.get(last_port) is not None:
+                resolution = resolution_map.get(last_port)
+                print("Found override resolution for port %s is %s" % (last_port, resolution))
+            current_port_map[last_port]["max_resolution"] = resolution
             last_port = None
             continue
 
@@ -74,6 +96,7 @@ xpos = 0
 ypos = 0
 for port in priority:
     if port in current_port_map and current_port_map[port]["connected"]:
+        print("Processing connected port {} for resolution {}".format(port, current_port_map.get(port).get("max_resolution")))
 
         if screen > 0:
             if args.mode == 'single':

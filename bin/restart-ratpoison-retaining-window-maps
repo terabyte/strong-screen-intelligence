@@ -18,19 +18,31 @@ for line in sh.ratpoison('-c', 'windows %n_:_%i_:_%c_:_%t'):
 # kick ratpoison in the junk
 sh.ratpoison('-c', 'restart')
 
-# sleep 100ms to ensure ratpoison is restarted
-time.sleep(0.1)
+# sleep 4000ms to ensure ratpoison is restarted
+time.sleep(4.0)
 
 print("Ratpoison Restarted!")
 
 # restore the windowz - let's do it the easy way for now, perf is not a concern here
 windows_are_correct = False
+count = 0
+# NOTE: I dunno what is wrong with ratpoison, but in certain modes
+# (multi-monitor), certain windows simply disapear from the list.  This can
+# create major problems with this algorithm, so I have rewritten it to be much
+# more defensive.
 while not windows_are_correct:
+    count = count + 1
+    if count > len(windows.keys()):
+        print(f"Ran loop for {count} times (with {len(windows.keys())} windows) but couldn't make a correct sorting")
+        sys.exit(1)
     # start each loop assuming windows are correct
     windows_are_correct = True
     for line in sh.ratpoison('-c', 'windows %n_:_%i_:_%c_:_%t'):
         this_num, this_id, this_class, this_title = line.split("_:_")
         print(f"Checking window {this_num} to see if it is numbered correctly")
+        if windows.get(this_id) is None:
+            print(f"WARN: Window id {this_id} title {this_title} not found in our window list, ignoring")
+            continue
         should_be = windows[this_id]["num"]
         if should_be != this_num:
             # this window is wrong, fix it and keep trying

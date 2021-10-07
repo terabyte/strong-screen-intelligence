@@ -32,7 +32,8 @@ count = 0
 # more defensive.
 while not windows_are_correct:
     count = count + 1
-    if count > len(windows.keys()):
+    # some windows disappear, so we have a 5 window padding here
+    if count > len(windows.keys()) + 5:
         print(f"Ran loop for {count} times (with {len(windows.keys())} windows) but couldn't make a correct sorting")
         sys.exit(1)
     # start each loop assuming windows are correct
